@@ -1,0 +1,277 @@
+---
+title: "Project PA"
+output: html_document
+date: "2023-01-12"
+---
+
+```{r}
+library("gbm")
+library("dplyr")
+library("gratia")
+library("ggeffects")
+library("Hmisc")
+library("caret")
+library("randomForest")
+library("rpart")
+library("ggplot2")
+library("tidyverse")
+library("gam")
+```
+
+```{r}
+train=read.csv("D:/train.csv",sep=";",header=T)
+train=select(train,-torque)
+train
+str(train)
+```
+
+#train name variable
+```{r}
+train$name <- sapply(strsplit(train$name, " "), `[`, 1)
+ggplot(data = train, aes(x=name, fill = name)) +
+  geom_bar() + labs(x='train Brand') + labs(title = "Bar Graph of train Brand") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+```{r}
+train$name <- str_replace(train$name, 'Maruti', '0')
+train$name <- str_replace(train$name, 'Skoda', '1')
+train$name <- str_replace(train$name, 'Honda', '2')
+train$name <- str_replace(train$name, 'Hyundai', '3')
+train$name <- str_replace(train$name, 'Toyota', '4')
+train$name <- str_replace(train$name, 'Ford', '5')
+train$name <- str_replace(train$name, 'Renault', '6')
+train$name <- str_replace(train$name, 'Mahindra', '7')
+train$name <- str_replace(train$name, 'Tata', '8')
+train$name <- str_replace(train$name, 'Chevrolet', '9')
+train$name <- str_replace(train$name, 'Fiat', '10')
+train$name <- str_replace(train$name, 'Datsun', '11')
+train$name <- str_replace(train$name, 'Jeep', '12')
+train$name <- str_replace(train$name, 'Mercedes-Benz', '13')
+train$name <- str_replace(train$name, 'Mitsubishi', '14')
+train$name <- str_replace(train$name, 'Audi', '15')
+train$name <- str_replace(train$name, 'Volkswagen', '16')
+train$name <- str_replace(train$name, 'BMW', '17')
+train$name <- str_replace(train$name, 'Nissan', '18')
+train$name <- str_replace(train$name, 'Lexus', '19')
+train$name <- str_replace(train$name, 'Jaguar', '20')
+train$name <- str_replace(train$name, 'Land', '21')
+train$name <- str_replace(train$name, 'MG', '22')
+train$name <- str_replace(train$name, 'Volvo', '23')
+train$name <- str_replace(train$name, 'Daewoo', '24')
+train$name <- str_replace(train$name, 'Kia', '25')
+train$name <- str_replace(train$name, 'Force', '26')
+train$name <- str_replace(train$name, 'Ambassador', '27')
+train$name <- str_replace(train$name, 'Ashok', '28')
+train$name <- str_replace(train$name, 'Isuzu', '29')
+train$name <- str_replace(train$name, 'Opel', '30')
+train$name <- str_replace(train$name, 'Peugeot', '31')
+```
+
+```{r}
+train$name <- as.numeric(train$name)
+table(train$name)
+```
+#Substituting blank with NA for columns mileage, engine, max_power
+```{r}
+train$mileage[train$mileage == ""] <- NA
+train$engine[train$engine == ""] <- NA
+train$max_power[train$max_power == ""] <- NA
+```
+
+#Checking for missing values
+```{r}
+sapply(train, function(x) sum(is.na(x)))
+```
+```{r}
+#Removing unit from mileage, converting it to numeric value and replacing the missing values
+train$mileage <- str_replace(train$mileage, 'kmpl', '')
+train$mileage <- str_replace(train$mileage, 'km/kg', '')
+train$mileage <- as.numeric(train$mileage)
+train$mileage[is.na(train$mileage)]<-mean(train$mileage,na.rm=TRUE)
+
+#Removing unit from engine, converting it to numeric value and replacing the missing values
+train$engine <- str_replace(train$engine, 'CC', '')
+train$engine <- as.numeric(train$engine)
+train$engine[is.na(train$engine)]<-mean(train$engine,na.rm=TRUE)
+
+#Removing unit from max_power, converting it to numeric value and replacing the missing values
+train$max_power <- str_replace(train$max_power, 'bhp', '')
+train$max_power <- as.numeric(train$max_power)
+train$max_power[is.na(train$max_power)]<-mean(train$max_power,na.rm=TRUE)
+
+#Converting seats to numeric value and replacing the missing values
+train$seats <- as.numeric(train$seats)
+train$seats[is.na(train$seats)]<-median(train$seats,na.rm=TRUE)
+```
+
+```{r}
+# Checking for missing values once again
+sapply(train, function(x) sum(is.na(x)))
+```
+
+#Plotting categorical Values and checking for distribution
+```{r}
+# Bar graph of Fuel
+ggplot(data = train, aes(x=reorder(fuel, fuel, function(x)-length(x)), fill = fuel)) +
+  geom_bar() + labs(x='Fuel') + labs(title = "Bar Graph of Fuel") 
+```
+```{r}
+#Bar graph of Seller Typs
+ggplot(data = train, aes(x=reorder(seller_type, seller_type, function(x)-length(x)), fill = seller_type)) +
+  geom_bar() + labs(x='Seller Type') + labs(title = "Bar Graph of Seller Type")
+```
+Huge number of cars are owned by individual owners followed by Dealer and Trustmark Dealers.
+
+```{r}
+# Bar graph of Owner
+ggplot(data = train, aes(x=reorder(owner, owner, function(x)-length(x)), fill = owner)) +
+  geom_bar() + labs(x='Owner') + labs(title = "Bar Graph of Owner") + 
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+Most of the cars are owned by first owners.
+
+# Bar graph of seats
+```{r}
+ggplot(data = train, aes(x=reorder(seats, seats, function(x)-length(x)), fill = seats)) +
+  geom_bar() + labs(x='Seats') + labs(title = "Bar Graph of Seats") +theme(axis.text.x = element_text(angle = 90, hjust = 1)) 
+```
+Most of the cars are 5 seater
+
+#Converting transmission, owner, seller type and fuel into ordinal encoder
+```{r}
+#Converting transmission column into binary 0 if Manual and 1 if Automatic
+train$transmission <- str_replace(train$transmission, 'Manual', "0")
+train$transmission <- str_replace(train$transmission, 'Automatic', "1")
+train$transmission <- as.numeric(train$transmission)
+table(train$transmission)
+```
+
+#Converting owner into Ordinal Encoder
+```{r}
+train$owner <- str_replace(train$owner, 'First Owner', "0")
+train$owner <- str_replace(train$owner, 'Second Owner', "1")
+train$owner <- str_replace(train$owner, 'Third Owner', "2")
+train$owner <- str_replace(train$owner, 'Fourth & Above Owner', "3")
+train$owner <- str_replace(train$owner, 'Test Drive Car', "4")
+train$owner <- as.numeric(train$owner)
+table(train$owner)
+```
+#Converting seller_type into Ordinal Encoder
+```{r}
+train$seller_type <- str_replace(train$seller_type, "Trustmark Dealer", "0")
+train$seller_type <- str_replace(train$seller_type, "Dealer", "1")
+train$seller_type <- str_replace(train$seller_type, "Individual", "2")
+train$seller_type <- as.numeric(train$seller_type)
+table(train$seller_type)
+```
+#Converting fuel into Ordinal Encoder
+```{r}
+train$fuel <- str_replace(train$fuel, 'Diesel', "0")
+train$fuel <- str_replace(train$fuel, 'Petrol', "1")
+train$fuel <- str_replace(train$fuel, 'CNG', "2")
+train$fuel <- str_replace(train$fuel, 'LPG', "3")
+train$fuel <- as.numeric(train$fuel)
+table(train$fuel)
+```
+#Plotting histogram of selling price, km driven to check the distribution
+```{r}
+#Histogram of Selling Price
+ggplot(train, aes(x=selling_price)) + 
+  geom_histogram(aes(y=..density..), colour="black", fill="white")+
+  geom_density(alpha=.2, fill="blue")+
+  labs(x='Selling Price ') + labs(title = "Histogram Graph of Selling Price") +
+  scale_x_continuous(trans='log10')
+```
+
+```{r}
+#Histogram of Km Driven
+ggplot(train, aes(x=km_driven)) + 
+  geom_histogram(color="black", fill="blue", bins = 200)+
+  labs(x='Km Driven ') + labs(title = "Histogram Graph of Km Driven") +
+  scale_x_continuous(trans='log10')
+```
+
+```{r}
+res2 <- rcorr(as.matrix(train))
+res2
+```
+We can see that selling price is highly correlated to max_power then transmission and name.
+
+
+#Splitting the Data into training and test data sets
+```{r}
+set.seed(5)
+trainIndex <- createDataPartition(train$selling_price, p = .8,
+                                  list = FALSE,
+                                  times = 1)
+Train <- train[ trainIndex,]
+Test <- train[-trainIndex,]
+```
+Splitting data into 80% Training and 20% Test.    
+
+#GAM
+```{r}
+gam1 <- gam(selling_price ~ s(name) + s(year) + s(km_driven) + seller_type + transmission  + s(mileage) + s(engine) + s(max_power) , data = Train)
+summary(gam1)
+
+predict_gam <- predict(gam1, Test)
+error_gam <- Test$selling_price - predict_gam
+RMSE_gam <- sqrt(mean(error_gam^2))
+RMSE_gam
+```
+
+#RANDOM FOREST
+```{r}
+rf=randomForest(selling_price~.,data = Train)
+rf
+
+#Using the model to predict selling price in the Test dataset
+pred_rf <- predict(rf, Test)
+error_rf <- Test$selling_price - pred_rf
+RMSE_rf <- sqrt(mean(error_rf^2))
+RMSE_rf
+
+#Plotting predicted vs. actual values
+plot(Test$selling_price,pred_rf, main="Scatterplot", col = c("red","blue"), xlab = "Actual Selling Price", ylab = "Predicted Selling Price")
+
+varImpPlot(rf, main ='Feature Importance')
+```
+
+
+#GRADIENT BOOSTING
+```{r}
+set.seed(123)
+gbm <- gbm(
+  formula = selling_price ~ .,
+  distribution = "gaussian",
+  data = Train,
+  n.trees = 6000,
+  interaction.depth = 3,
+  shrinkage = 0.1,
+  cv.folds = 5,
+  n.cores = NULL, 
+  verbose = FALSE
+)  
+gbm
+```
+```{r}
+#Using the model to predict selling price in the Test dataset
+pred_gbm <- predict(gbm, Test)
+error_gbm <- Test$selling_price - pred_gbm
+RMSE_gbm <- sqrt(mean(error_gbm^2))
+RMSE_gbm
+
+summary(gbm, cBars = 10,method = relative.influence, las = 2)
+```
+
+```{r}
+cp=data.frame("Model"= c("GAM","RANDOM FOREST","BOOSTING"),
+              "RMSE"=c(RMSE_gam,RMSE_rf,RMSE_gbm))
+cp
+```
+We used Generalized additive model, random forest and gradient boosting models to predict selling price of cars and we see that gradient boosting gives us a better RMSE among the three models.Variables that are useful to describe the variance are max_power, year, km_driven and name.
+
+
+
+
+
